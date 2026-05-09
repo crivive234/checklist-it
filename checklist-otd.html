@@ -167,6 +167,20 @@ hr { border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }
 .btn-pantalla.activo { background:#111; color:#fff; border-color:#111; }
 tr.row-segunda-pantalla td { opacity:.35; pointer-events:none; transition:opacity .2s; }
 tr.row-segunda-pantalla.activa td { opacity:1; pointer-events:auto; }
+
+/* ── UPLOAD IMAGEN PERIFÉRICOS ── */
+.img-uploader { display:inline-flex; align-items:center; gap:4px; }
+.btn-img-upload {
+  cursor:pointer; background:#fff; border:1.5px solid #bbb; color:#333;
+  font-size:11px; font-weight:700; padding:4px 10px; transition:all .15s;
+  font-family:inherit; white-space:nowrap;
+}
+.btn-img-upload:hover { border-color:#3a5fc8; color:#3a5fc8; }
+.btn-img-remove {
+  cursor:pointer; background:#fff; border:1.5px solid #c33; color:#c33;
+  font-size:11px; font-weight:700; padding:4px 7px; font-family:inherit;
+}
+.btn-img-remove:hover { background:#c33; color:#fff; }
 </style>
 </head>
 <body>
@@ -234,11 +248,11 @@ tr.row-segunda-pantalla.activa td { opacity:1; pointer-events:auto; }
       <hr/>
 
       <span class="lbl-sub">Almacenamiento</span>
-      <p class="note">Discos físicos detectados en el equipo.</p>
+      <p class="note">Discos físicos detectados en el equipo. Marca los que deseas incluir en el reporte.</p>
       <div style="border:1px solid #e0e0e0; margin-bottom:14px;">
         <table>
-          <thead><tr><th>Modelo</th><th>Tipo</th><th>Capacidad</th><th>Estado</th></tr></thead>
-          <tbody id="tbody-discos"><tr><td colspan="4" style="color:#aaa;">Sin datos cargados</td></tr></tbody>
+          <thead><tr><th class="col-chk">✓</th><th>Modelo</th><th>Tipo</th><th>Capacidad</th><th>Estado</th></tr></thead>
+          <tbody id="tbody-discos"><tr><td colspan="5" style="color:#aaa;">Sin datos cargados</td></tr></tbody>
         </table>
       </div>
 
@@ -375,7 +389,7 @@ tr.row-segunda-pantalla.activa td { opacity:1; pointer-events:auto; }
       <hr/>
       <span class="lbl-sub">Periféricos</span>
       <table id="tbl-perifericos" style="margin-bottom:16px;">
-        <thead><tr><th>Periférico</th><th>¿Funciona?</th><th>Observación</th></tr></thead>
+        <thead><tr><th>Periférico</th><th>¿Funciona?</th><th>Observación</th><th>Evidencia</th></tr></thead>
         <tbody></tbody>
       </table>
       <hr/>
@@ -473,12 +487,12 @@ const TIPOS_CHECKLIST = {
 //   clase     → si se define, la clase del driver también debe coincidir (AND)
 //   excluir   → si alguna de estas palabras está en el nombre, se descarta el driver
 const DRIVERS_REQUERIDOS = [
-  // Red: clase NET + nombre contiene "pcie" — selecciona TODOS los que coincidan
-  { label: 'Red (PCIe)',          palabras: ['pcie'],              clase: 'net',     excluir: [] },
+  // Red: clase NET + nombre contiene "ethernet" — selecciona todos los que coincidan
+  { label: 'Red (Ethernet)',      palabras: ['ethernet'],          clase: 'net',     excluir: [] },
   // Video: SOLO clase DISPLAY, excluyendo Command Center y Control Panel
   { label: 'Video (Graphics)',    palabras: ['graphics'],          clase: 'display', excluir: ['command center', 'control panel'] },
-  // Realtek High Definition Audio
-  { label: 'Audio (Realtek HDA)', palabras: ['realtek', 'audio'], clase: '',        excluir: [] },
+  // Audio: clase MEDIA + nombre contiene "audio"
+  { label: 'Audio (Media)',       palabras: ['audio'],             clase: 'media',   excluir: [] },
   // HID-compliant mouse — cualquier nombre que contenga "mouse"
   { label: 'Mouse',               palabras: ['mouse'],             clase: '',        excluir: [] },
   // HID Keyboard Device — cualquier nombre que contenga "keyboard"
@@ -529,6 +543,7 @@ const S = {
   programas:[], drivers:[], tarjetasRed:[],
   programasSeleccionados: new Set(),
   driversSeleccionados:   new Set(),
+  discosSeleccionados:    new Set(),
   pingResultado:'', pingMs:0, pingPerdida:0,
   perifericos:{}, cables:{},
   limpiezaInterna:'', obsLimpieza:'',
@@ -539,8 +554,8 @@ const S = {
 };
 
 const PERIFERICOS = [
-  { key:'teclado',   label:'Teclado' },
-  { key:'mouse',     label:'Mouse' },
+  { key:'teclado',   label:'Teclado',                            imagen:true },
+  { key:'mouse',     label:'Mouse',                              imagen:true },
   { key:'monitor',   label:'Monitor' },
   { key:'monitor2',  label:'Monitor 2ª Pantalla', segunda:true },
   { key:'camara',    label:'Cámara Web' },
@@ -565,10 +580,12 @@ var dualMonitor = false;
 
 // ── HELPERS RADIOS CON N/A ──
 function makeRadios(key, obj, field, values) {
+  const current = (S[obj] && S[obj][key]) ? (S[obj][key][field] || '') : '';
   return '<div class="radios">' +
     values.map(function(v) {
       const isNA = v === 'N/A';
-      return '<button onclick="' +
+      const sel = (current === v) ? (isNA ? 'sel-na' : 'sel') : '';
+      return '<button class="' + sel + '" onclick="' +
         'S.' + obj + '[\'' + key + '\'].' + field + '=\'' + v + '\';' +
         'this.closest(\'.radios\').querySelectorAll(\'button\').forEach(function(b){b.className=\'\'});' +
         'this.className=\'' + (isNA ? 'sel-na' : 'sel') + '\'">' + v + '</button>';
@@ -595,12 +612,62 @@ function renderPerifericos() {
     const labelCell = esSegunda
       ? p.label + ' <span style="font-size:10px;color:#3a5fc8;font-weight:400;">(2ª pantalla)</span>'
       : p.label;
+
+    // Celda de evidencia: solo visible para periféricos con imagen:true
+    let evidenciaCell = '';
+    if (p.imagen) {
+      const tieneImg = !!(S.perifericos[p.key] && S.perifericos[p.key].imagen);
+      evidenciaCell =
+        '<div class="img-uploader" id="img-' + p.key + '">' +
+          '<label class="btn-img-upload">' +
+            (tieneImg ? '✓ Cambiar' : '📷 Subir') +
+            '<input type="file" accept="image/*" onchange="cargarImagenPeriferico(\'' + p.key + '\', this)" style="display:none;"/>' +
+          '</label>' +
+          (tieneImg
+            ? '<button class="btn-img-remove" onclick="quitarImagenPeriferico(\'' + p.key + '\')" title="Quitar imagen">✕</button>'
+            : '') +
+        '</div>';
+    } else {
+      evidenciaCell = '<span style="color:#ccc;font-size:11px;">—</span>';
+    }
+
     return '<tr ' + trClass + '>' +
       '<td style="font-weight:600;white-space:nowrap;">' + labelCell + '</td>' +
       '<td>' + makeRadios(p.key, 'perifericos', 'funciona', ['Sí','No','N/A']) + '</td>' +
-      '<td><input type="text" class="perf-obs" placeholder="Sin observaciones" oninput="S.perifericos[\'' + p.key + '\'].obs=this.value"/></td>' +
+      '<td><input type="text" class="perf-obs" placeholder="Sin observaciones" value="' + esc((S.perifericos[p.key]||{}).obs||'') + '" oninput="S.perifericos[\'' + p.key + '\'].obs=this.value"/></td>' +
+      '<td style="text-align:center;">' + evidenciaCell + '</td>' +
     '</tr>';
   }).join('');
+}
+
+// ── CARGAR IMAGEN PERIFÉRICO (Teclado / Mouse) ──
+function cargarImagenPeriferico(key, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast('El archivo debe ser una imagen');
+    input.value = '';
+    return;
+  }
+  // Limitar a 4 MB para que el PDF no se vuelva enorme
+  if (file.size > 4 * 1024 * 1024) {
+    toast('La imagen no puede superar los 4 MB');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    S.perifericos[key].imagen = ev.target.result;
+    renderPerifericos();
+    toast('Imagen cargada para ' + (key === 'teclado' ? 'Teclado' : 'Mouse'));
+  };
+  reader.readAsDataURL(file);
+}
+
+function quitarImagenPeriferico(key) {
+  if (!S.perifericos[key]) return;
+  S.perifericos[key].imagen = '';
+  renderPerifericos();
 }
 
 // ── RENDER CABLES ──
@@ -654,6 +721,11 @@ function togglePrograma(idx, checked) {
   if (checked) S.programasSeleccionados.add(idx);
   else         S.programasSeleccionados.delete(idx);
   actualizarBadgeProgramas();
+}
+
+function toggleDisco(idx, checked) {
+  if (checked) S.discosSeleccionados.add(idx);
+  else         S.discosSeleccionados.delete(idx);
 }
 
 function actualizarBadgeProgramas() {
@@ -840,7 +912,7 @@ window.onload = function() {
     if (el) el.addEventListener('input', function(e){ S[id] = e.target.value; });
   });
 
-  PERIFERICOS.forEach(function(p){ S.perifericos[p.key] = { funciona:'', obs:'' }; });
+  PERIFERICOS.forEach(function(p){ S.perifericos[p.key] = { funciona:'', obs:'', imagen:'' }; });
   CABLES.forEach(function(c){ S.cables[c.key] = { tipo:'', tiene:'', funciona:'' }; });
 
   renderPerifericos();
@@ -898,14 +970,18 @@ function importJSON(text, fname) {
 
     if (Array.isArray(d.discos)) {
       S.discos = d.discos;
+      S.discosSeleccionados.clear();
+      // Por defecto, todos los discos seleccionados
+      d.discos.forEach(function(_, idx){ S.discosSeleccionados.add(idx); });
       const tbody = document.getElementById('tbody-discos');
       if (d.discos.length > 0) {
-        tbody.innerHTML = d.discos.map(function(dk) {
+        tbody.innerHTML = d.discos.map(function(dk, idx) {
           const tipo  = dk.tipo || '';
           const badge = tipo.includes('NVMe') ? 'background:#e8f0fe;color:#1a56db;' :
                         tipo.includes('SSD')  ? 'background:#e6f9ed;color:#0a6b2e;' :
                         tipo.includes('HDD')  ? 'background:#fff3e0;color:#b45309;' : '';
           return '<tr>' +
+            '<td class="col-chk"><input type="checkbox" checked onchange="toggleDisco(' + idx + ',this.checked)"/></td>' +
             '<td>' + esc(dk.modelo||'') + '</td>' +
             '<td><span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;' + badge + '">' + esc(tipo) + '</span></td>' +
             '<td>' + esc(dk.capacidad||'') + '</td>' +
@@ -913,7 +989,7 @@ function importJSON(text, fname) {
           '</tr>';
         }).join('');
       } else {
-        tbody.innerHTML = '<tr><td colspan="4" style="color:#aaa;">Sin discos detectados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="color:#aaa;">Sin discos detectados</td></tr>';
       }
     }
 
@@ -1185,10 +1261,11 @@ function generarPDF() {
 
   // Discos
   secHeader('Almacenamiento');
-  if (S.discos && S.discos.length > 0) {
+  const discosSel = (S.discos || []).filter(function(_, idx){ return S.discosSeleccionados.has(idx); });
+  if (discosSel.length > 0) {
     tbl(
       ['Modelo','Tipo','Capacidad','Estado'],
-      S.discos.map(function(dk){ return [dk.modelo||'', dk.tipo||'', dk.capacidad||'', dk.estado||'']; }),
+      discosSel.map(function(dk){ return [dk.modelo||'', dk.tipo||'', dk.capacidad||'', dk.estado||'']; }),
       { 0:{ cellWidth:80 }, 1:{ cellWidth:28 }, 2:{ cellWidth:25 } }
     );
   } else {
@@ -1263,6 +1340,50 @@ function generarPDF() {
     }),
     { 0:{ cellWidth:45 }, 1:{ cellWidth:28 } }
   );
+
+  // ── EVIDENCIAS DE TECLADO Y MOUSE (imágenes opcionales) ──
+  const evidencias = PERIFERICOS.filter(function(p){
+    return p.imagen && S.perifericos[p.key] && S.perifericos[p.key].imagen;
+  });
+  if (evidencias.length > 0) {
+    checkY(10);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('Evidencias (capturas de test)', ML, Y); Y += 5;
+
+    // Layout: 1 imagen por fila, escalada al ancho disponible y altura máxima 70 mm
+    const imgMaxW = W;
+    const imgMaxH = 70;
+    evidencias.forEach(function(p) {
+      const d = S.perifericos[p.key];
+      checkY(imgMaxH + 12);
+
+      // Etiqueta sobre la imagen
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(80,80,80);
+      doc.text(p.label, ML, Y);
+      Y += 4;
+
+      // Calcular dimensiones de la imagen manteniendo proporción
+      try {
+        const props = doc.getImageProperties(d.imagen);
+        const ratio = props.width / props.height;
+        let drawW = imgMaxW;
+        let drawH = drawW / ratio;
+        if (drawH > imgMaxH) {
+          drawH = imgMaxH;
+          drawW = drawH * ratio;
+        }
+        // Borde gris fino
+        doc.setDrawColor(200,200,200); doc.setLineWidth(0.2);
+        doc.rect(ML, Y, drawW, drawH);
+        doc.addImage(d.imagen, 'PNG', ML, Y, drawW, drawH);
+        Y += drawH + 6;
+      } catch(err) {
+        doc.setFont('helvetica','italic'); doc.setFontSize(7); doc.setTextColor(150,150,150);
+        doc.text('No se pudo cargar la imagen.', ML, Y); Y += 6;
+      }
+      doc.setTextColor(0,0,0);
+    });
+  }
 
   checkY(10);
   doc.setFont('helvetica','bold'); doc.setFontSize(8);
