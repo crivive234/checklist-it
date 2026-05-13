@@ -369,9 +369,21 @@ tr.row-segunda-pantalla.activa td { opacity:1; pointer-events:auto; }
             <button onclick="pick('limpiezaInterna',this,'No aplica')">No aplica</button>
           </div>
         </div>
-        <div class="field">
+        <div class="field" style="margin-bottom:10px;">
           <label>Observaciones de limpieza</label>
           <textarea id="obs-limpieza" placeholder="Ej: polvo acumulado en ventiladores, pasta térmica deteriorada..." style="min-height:50px;"></textarea>
+        </div>
+        <div class="field">
+          <label>Evidencia de limpieza interna <span style="font-weight:400;color:#888;font-size:11px;">(opcional)</span></label>
+          <div id="evidencia-limpieza-wrap" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label class="btn-img-upload">
+              📷 Subir foto
+              <input type="file" accept="image/*" onchange="cargarImagenGeneral('limpiezaImg', this)" style="display:none;"/>
+            </label>
+            <span id="status-limpiezaImg" style="font-size:11px;color:#888;">Sin imagen cargada</span>
+            <button id="btn-remove-limpiezaImg" class="btn-img-remove" onclick="quitarImagenGeneral('limpiezaImg')" style="display:none;">✕ Quitar</button>
+          </div>
+          <img id="preview-limpiezaImg" style="display:none;max-width:280px;max-height:180px;margin-top:10px;border:1px solid #ddd;"/>
         </div>
       </div>
 
@@ -398,6 +410,21 @@ tr.row-segunda-pantalla.activa td { opacity:1; pointer-events:auto; }
         <thead><tr><th>Cable</th><th>Tipo / Modelo</th><th>¿Incluido?</th><th>¿Funciona?</th></tr></thead>
         <tbody></tbody>
       </table>
+
+      <hr style="margin-top:18px;"/>
+      <span class="lbl-sub">Evidencia general del equipo</span>
+      <p class="note" style="margin-bottom:10px;">Captura general del equipo completo (carcasa, periféricos conectados, vista del puesto de trabajo). <strong>Opcional.</strong></p>
+      <div style="padding:14px; background:#fafafa; border:1px solid #e0e0e0;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label class="btn-img-upload">
+            📷 Subir foto del equipo
+            <input type="file" accept="image/*" onchange="cargarImagenGeneral('equipoImg', this)" style="display:none;"/>
+          </label>
+          <span id="status-equipoImg" style="font-size:11px;color:#888;">Sin imagen cargada</span>
+          <button id="btn-remove-equipoImg" class="btn-img-remove" onclick="quitarImagenGeneral('equipoImg')" style="display:none;">✕ Quitar</button>
+        </div>
+        <img id="preview-equipoImg" style="display:none;max-width:380px;max-height:240px;margin-top:10px;border:1px solid #ddd;"/>
+      </div>
     </div>
   </div>
 
@@ -546,7 +573,7 @@ const S = {
   discosSeleccionados:    new Set(),
   pingResultado:'', pingMs:0, pingPerdida:0,
   perifericos:{}, cables:{},
-  limpiezaInterna:'', obsLimpieza:'',
+  limpiezaInterna:'', obsLimpieza:'', limpiezaImg:'', equipoImg:'',
   obsApps:'', obsDrivers:'',
   colNombre:'', colCedula:'', colCargo:'', colTelefono:'', colCampana:'',
   tecNombre:'', tecCargo:'',
@@ -668,6 +695,55 @@ function quitarImagenPeriferico(key) {
   if (!S.perifericos[key]) return;
   S.perifericos[key].imagen = '';
   renderPerifericos();
+}
+
+// ── CARGAR IMAGEN GENERAL (limpieza interna y equipo completo) ──
+function cargarImagenGeneral(stateKey, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast('El archivo debe ser una imagen');
+    input.value = '';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    toast('La imagen no puede superar los 4 MB');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    S[stateKey] = ev.target.result;
+    actualizarPreviewImagen(stateKey);
+    const nombre = stateKey === 'limpiezaImg' ? 'limpieza interna' : 'equipo';
+    toast('Imagen cargada: ' + nombre);
+  };
+  reader.readAsDataURL(file);
+}
+
+function quitarImagenGeneral(stateKey) {
+  S[stateKey] = '';
+  actualizarPreviewImagen(stateKey);
+}
+
+function actualizarPreviewImagen(stateKey) {
+  const img       = document.getElementById('preview-' + stateKey);
+  const status    = document.getElementById('status-' + stateKey);
+  const btnRemove = document.getElementById('btn-remove-' + stateKey);
+  if (!img) return;
+  if (S[stateKey]) {
+    img.src = S[stateKey];
+    img.style.display = 'block';
+    if (status)    status.textContent = '✓ Imagen cargada';
+    if (status)    status.style.color = '#0a6b2e';
+    if (btnRemove) btnRemove.style.display = 'inline-block';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    if (status)    status.textContent = 'Sin imagen cargada';
+    if (status)    status.style.color = '#888';
+    if (btnRemove) btnRemove.style.display = 'none';
+  }
 }
 
 // ── RENDER CABLES ──
@@ -1332,6 +1408,40 @@ function generarPDF() {
     { 0:{ cellWidth:60, fontStyle:'bold' }, 1:{ cellWidth:40 } }
   );
 
+  // Helper para dibujar una imagen con etiqueta, manteniendo proporción
+  function dibujarImagenPDF(dataUrl, etiqueta, maxH) {
+    if (!dataUrl) return;
+    const imgMaxW = W;
+    const imgMaxH = maxH || 70;
+    checkY(imgMaxH + 12);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(80,80,80);
+    doc.text(etiqueta, ML, Y);
+    Y += 4;
+    try {
+      const props = doc.getImageProperties(dataUrl);
+      const ratio = props.width / props.height;
+      let drawW = imgMaxW;
+      let drawH = drawW / ratio;
+      if (drawH > imgMaxH) {
+        drawH = imgMaxH;
+        drawW = drawH * ratio;
+      }
+      doc.setDrawColor(200,200,200); doc.setLineWidth(0.2);
+      doc.rect(ML, Y, drawW, drawH);
+      doc.addImage(dataUrl, 'PNG', ML, Y, drawW, drawH);
+      Y += drawH + 6;
+    } catch(err) {
+      doc.setFont('helvetica','italic'); doc.setFontSize(7); doc.setTextColor(150,150,150);
+      doc.text('No se pudo cargar la imagen.', ML, Y); Y += 6;
+    }
+    doc.setTextColor(0,0,0);
+  }
+
+  // Evidencia de limpieza interna (si se cargó)
+  if (S.limpiezaImg) {
+    dibujarImagenPDF(S.limpiezaImg, 'Evidencia de limpieza interna', 70);
+  }
+
   tbl(
     ['Periférico','¿Funciona?','Observación'],
     PERIFERICOS.filter(function(p){ return !p.segunda || dualMonitor; }).map(function(p) {
@@ -1349,39 +1459,8 @@ function generarPDF() {
     checkY(10);
     doc.setFont('helvetica','bold'); doc.setFontSize(8);
     doc.text('Evidencias (capturas de test)', ML, Y); Y += 5;
-
-    // Layout: 1 imagen por fila, escalada al ancho disponible y altura máxima 70 mm
-    const imgMaxW = W;
-    const imgMaxH = 70;
     evidencias.forEach(function(p) {
-      const d = S.perifericos[p.key];
-      checkY(imgMaxH + 12);
-
-      // Etiqueta sobre la imagen
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(80,80,80);
-      doc.text(p.label, ML, Y);
-      Y += 4;
-
-      // Calcular dimensiones de la imagen manteniendo proporción
-      try {
-        const props = doc.getImageProperties(d.imagen);
-        const ratio = props.width / props.height;
-        let drawW = imgMaxW;
-        let drawH = drawW / ratio;
-        if (drawH > imgMaxH) {
-          drawH = imgMaxH;
-          drawW = drawH * ratio;
-        }
-        // Borde gris fino
-        doc.setDrawColor(200,200,200); doc.setLineWidth(0.2);
-        doc.rect(ML, Y, drawW, drawH);
-        doc.addImage(d.imagen, 'PNG', ML, Y, drawW, drawH);
-        Y += drawH + 6;
-      } catch(err) {
-        doc.setFont('helvetica','italic'); doc.setFontSize(7); doc.setTextColor(150,150,150);
-        doc.text('No se pudo cargar la imagen.', ML, Y); Y += 6;
-      }
-      doc.setTextColor(0,0,0);
+      dibujarImagenPDF(S.perifericos[p.key].imagen, p.label, 70);
     });
   }
 
@@ -1396,6 +1475,12 @@ function generarPDF() {
     }),
     { 0:{ cellWidth:50 }, 1:{ cellWidth:40 }, 2:{ cellWidth:25 }, 3:{ cellWidth:25 } }
   );
+
+  // Evidencia general del equipo completo (si se cargó) — al final de la sección
+  if (S.equipoImg) {
+    checkY(10);
+    dibujarImagenPDF(S.equipoImg, 'Evidencia general del equipo', 90);
+  }
 
   // ── 5. RED ──
   secHeader('5. Conectividad y Red');

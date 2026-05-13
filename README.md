@@ -1,21 +1,21 @@
-# Checklist OTD Américas — Guía de Uso
+# Checklist OTD Américas
 
-Herramienta web para validar, documentar y certificar equipos de cómputo (laptops y desktops) destinados a trabajo en casa o procesos de inventario. Genera un reporte PDF al finalizar.
+Herramienta web para validar, documentar y certificar equipos de cómputo (laptops y desktops) destinados a trabajo en casa, procesos de paz y salvo o inventario interno. Genera un reporte PDF al finalizar.
 
 ---
 
-## Archivos incluidos
+## 📁 Archivos incluidos
 
 | Archivo | Descripción |
 |---|---|
-| `checklist-otd.html` | La herramienta principal. Se abre en cualquier navegador web (Chrome recomendado). |
+| `checklist-otd.html` | Herramienta principal. Se abre en cualquier navegador web (Chrome recomendado). |
 | `Recopilar-DatosEquipo.ps1` | Script de PowerShell que recopila la información técnica del equipo automáticamente. |
 
-> Ambos archivos deben estar en la **misma carpeta** para que el lanzador funcione correctamente.
+> ⚠️ Ambos archivos deben estar en la **misma carpeta** para que el lanzador funcione correctamente.
 
 ---
 
-## ¿Cómo se usa?
+## 🚀 ¿Cómo se usa?
 
 ### Paso 1 — Seleccionar el tipo de checklist
 
@@ -27,6 +27,8 @@ Al abrir el HTML, lo primero que verás es un selector con tres opciones:
 | **Paz y Salvo (Entrega de equipo)** | Cuando el colaborador devuelve el equipo. Incluye sección de firmas. |
 | **Inventario (Certificación)** | Para registro y certificación interna de inventario. **No incluye** sección de firmas ni datos de entrega. |
 
+El título del documento, el subtítulo y la estructura del PDF se ajustan automáticamente según el tipo seleccionado.
+
 ---
 
 ### Paso 2 — Recopilar datos del equipo automáticamente
@@ -35,13 +37,13 @@ La herramienta puede llenarse automáticamente con la información del equipo us
 
 1. Haz clic en **"⬇ Descargar lanzador"** — se descargará un archivo llamado `lanzar-script.bat`.
 2. Mueve ese archivo `.bat` a la misma carpeta donde está el script `Recopilar-DatosEquipo.ps1`.
-3. Haz doble clic en `lanzar-script.bat`. Se abrirá una ventana negra (consola) y el script se ejecutará.
+3. Haz doble clic en `lanzar-script.bat`. Se abrirá una ventana de consola y el script se ejecutará.
 4. Cuando termine, aparecerá un archivo `.json` en esa misma carpeta.
 5. De vuelta en el checklist, haz clic en **"CARGAR JSON"** y selecciona ese archivo.
 
 Los campos del equipo se llenarán solos: hostname, marca, modelo, procesador, RAM, discos, sistema operativo, drivers, programas instalados y datos de red.
 
-> **¿Sin acceso para ejecutar el script?** Puedes llenar los campos manualmente uno por uno.
+> 💡 **¿Sin acceso para ejecutar el script?** Puedes llenar los campos manualmente uno por uno.
 
 ---
 
@@ -51,7 +53,7 @@ El checklist está dividido en 5 secciones. Recórrelas de arriba a abajo:
 
 ---
 
-#### Sección 1 — Información del Equipo
+#### 📋 Sección 1 — Información del Equipo
 
 Muestra los datos técnicos del equipo: hostname, fecha, marca, modelo, número de serie, sistema operativo, procesador, RAM, BIOS y discos.
 
@@ -59,9 +61,13 @@ Muestra los datos técnicos del equipo: hostname, fecha, marca, modelo, número 
 - La **fecha de alistamiento** se puede editar manualmente.
 - Se incluyen preguntas adicionales sobre **Windows Update**, **licencia de Windows** y **actualizaciones pendientes**, que deben responderse manualmente con los botones Sí / No.
 
+**Selección de discos** — Si el equipo tiene varios discos físicos, puedes marcar con un checkbox cuáles incluir en el reporte. Por defecto todos quedan seleccionados al cargar el JSON; desmarca los que no quieras que aparezcan en el PDF.
+
+> ⚠️ **Sobre el error de Windows Update (`0x80244007` u otros):** Si el script no puede consultar Windows Update por restricciones de red o falta de conexión al servidor, el campo queda como "no revisado". En ese caso, marca el estado manualmente con los botones Sí / No / N/A después de verificarlo en el equipo.
+
 ---
 
-#### Sección 2 — Drivers Instalados
+#### ⚙️ Sección 2 — Drivers Instalados
 
 Muestra la lista de drivers detectados en el equipo.
 
@@ -69,44 +75,53 @@ Muestra la lista de drivers detectados en el equipo.
 
 | Driver | Cómo se identifica |
 |---|---|
-| Red (PCIe) | Clase NET + nombre contiene "PCIe" |
-| Video (Graphics) | Clase DISPLAY + nombre contiene "Graphics" |
-| Audio (Realtek) | Nombre contiene "Realtek" y "Audio" |
-| Mouse | Nombre contiene "mouse" |
-| Teclado | Nombre contiene "keyboard" |
+| **Red (Ethernet)** | Clase `NET` + nombre contiene "ethernet" — selecciona todos los que coincidan |
+| **Video (Graphics)** | Clase `DISPLAY` + nombre contiene "graphics" |
+| **Audio (Media)** | Clase `MEDIA` + nombre contiene "audio" |
+| **Mouse** | Nombre contiene "mouse" |
+| **Teclado** | Nombre contiene "keyboard" |
 
-> Los drivers de software como *Intel Graphics Command Center* o *Intel Graphics Control Panel* **no se seleccionan**, aunque contengan "Graphics".
+> Drivers de software como *Intel Graphics Command Center* o *Intel Graphics Control Panel* **se excluyen automáticamente**, aunque contengan "Graphics".
 
-Puedes marcar o desmarcar drivers adicionales usando las casillas de verificación. Solo los drivers marcados aparecerán en el reporte PDF.
+Puedes marcar o desmarcar drivers adicionales usando las casillas. Solo los drivers marcados aparecerán en el reporte PDF.
 
 Hay un campo de **observaciones** al final para anotar cualquier driver faltante o con problemas.
 
 ---
 
-#### Sección 3 — Verificación Física de Periféricos
+#### 🔌 Sección 3 — Verificación Física de Periféricos
 
 Se verifica el estado físico del equipo y sus accesorios.
 
-**Limpieza del equipo:** Indica si el equipo fue limpiado internamente, con un campo de observaciones.
+**Limpieza y estado físico del equipo:**
+- Indica si el equipo fue limpiado internamente.
+- Campo de observaciones para anotar detalles (polvo, pasta térmica, etc.).
+- 📷 **Evidencia de limpieza interna** *(opcional)* — Puedes cargar una foto que muestre el equipo limpio por dentro. Aparecerá en el PDF.
 
 **Configuración de pantallas:** Usa los botones para indicar si el puesto tiene 1 o 2 monitores:
-
-- **⬜ 1 Pantalla** — Solo se muestran los campos del monitor principal. (opción por defecto)
+- **⬜ 1 Pantalla** — Solo se muestran los campos del monitor principal *(opción por defecto)*.
 - **⬜⬜ 2 Pantallas** — Se activan campos adicionales para el segundo monitor: Monitor 2ª Pantalla, Cable de Video 2ª Pantalla y Cable Poder Monitor 2ª Pantalla.
 
 > Los campos de la 2ª pantalla aparecen desactivados (en gris) hasta que se seleccione esa opción, y **solo se incluyen en el PDF si están activos**.
 
 **Periféricos:** Para cada elemento (teclado, mouse, monitor, cámara, diadema, YubiKey) se indica si funciona con los botones **Sí / No / N/A** y se puede agregar una observación.
 
+📷 **Evidencias de Teclado y Mouse** *(opcional)* — En las filas de Teclado y Mouse hay un botón **📷 Subir** para cargar capturas del test de cada uno (por ejemplo, screenshots de keyboard-test o mouse-test). Las imágenes aparecen al final de la sección en el PDF.
+
 **Cables:** Se registra el tipo y estado de cada cable incluido:
 - Cable de Video (con selector de tipo: HDMI, DisplayPort, VGA, etc.)
 - Cable de Red UTP (con selector Cat 5 / Cat 6, etc.)
 - Cable Poder Equipo
 - Cable Poder Monitor
+- *(+ versiones 2ª pantalla si el toggle está activo)*
+
+📷 **Evidencia general del equipo** *(opcional)* — Al final de la sección hay un bloque para cargar una foto general del equipo completo (carcasa, periféricos conectados, vista del puesto). Aparece al final de la sección 4 del PDF.
+
+> **Sobre las imágenes:** Cada imagen tiene un límite de **4 MB**. Se aceptan formatos JPG, PNG, WebP. Puedes quitar cualquier imagen cargada con el botón **✕**.
 
 ---
 
-#### Sección 4 — Conectividad y Red
+#### 🌐 Sección 4 — Conectividad y Red
 
 Muestra las tarjetas de red detectadas en el equipo (equivalente a ver `ncpa.cpl`) con nombre, descripción, MAC, IP, estado y velocidad.
 
@@ -116,12 +131,11 @@ Esta información se llena automáticamente desde el JSON.
 
 ---
 
-#### Sección 5 — Información de Entrega y Firmas
+#### ✍️ Sección 5 — Información de Entrega y Firmas
 
 > ⚠️ **Esta sección no aparece cuando el tipo de checklist es "Inventario (Certificación)".**
 
 Se registran los datos del colaborador que recibe el equipo y del técnico responsable:
-
 - Nombre completo, cédula, cargo, teléfono y campaña/área del colaborador.
 - Nombre y cargo del técnico.
 
@@ -141,7 +155,7 @@ El PDF incluye todas las secciones activas y solo los datos que se hayan complet
 
 ---
 
-## Preguntas frecuentes
+## ❓ Preguntas frecuentes
 
 **¿Necesita internet para funcionar?**
 No. Una vez abierto el archivo HTML, todo funciona sin conexión a internet.
@@ -152,19 +166,34 @@ El checklist HTML funciona en cualquier sistema. El script de PowerShell (`Recop
 **¿Qué hago si el script no se ejecuta?**
 Asegúrate de que el archivo `.bat` esté en la misma carpeta que el script `.ps1`. Si hay restricciones de seguridad en la empresa, es posible que necesites ejecutar el script manualmente desde PowerShell con permisos de administrador.
 
+**¿Qué pasa si Windows Update muestra error (`0x80244007`, etc.)?**
+El script lo registra como no consultado y el checklist mostrará el campo sin marcar. Verifica manualmente el estado en el equipo y marca con los botones Sí / No / N/A.
+
 **¿Puedo llenar el checklist sin el JSON?**
 Sí. Todos los campos se pueden completar manualmente. El JSON solo agiliza el proceso.
 
+**¿Las imágenes son obligatorias?**
+No. Todas las imágenes (limpieza interna, teclado, mouse, equipo completo) son **opcionales**. Si no las cargas, simplemente no aparecen en el PDF.
+
 **¿Los datos se guardan si cierro la página?**
-No. Al cerrar o recargar la página se pierden los datos. Genera el PDF antes de cerrar.
+No. Al cerrar o recargar la página se pierden los datos. **Genera el PDF antes de cerrar.**
 
 ---
 
-## Requisitos
+## 🛠️ Requisitos
 
 - Navegador web moderno (Google Chrome recomendado)
 - Windows 10 / 11 para ejecutar el script de PowerShell
 - PowerShell 5.1 o superior (incluido por defecto en Windows 10/11)
+
+---
+
+## 📝 Historial de versiones
+
+- **v1.3** — Evidencias fotográficas (limpieza interna, teclado, mouse, equipo completo)
+- **v1.2** — Selección de discos en almacenamiento · Nuevas reglas de drivers (Audio MEDIA, Red Ethernet)
+- **v1.1** — Toggle 1/2 pantallas · Tipo "Inventario (Certificación)" sin firmas
+- **v1.0** — Versión inicial: alistamiento + paz y salvo + firmas digitales
 
 ---
 
